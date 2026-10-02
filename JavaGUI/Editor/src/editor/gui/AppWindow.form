@@ -690,7 +690,7 @@
       <Properties>
         <Property name="actionName" type="java.lang.String" value="Show the Reachability Graph (Highlight Deadlocks)."/>
         <Property name="icon" type="javax.swing.Icon" editor="org.netbeans.modules.form.RADConnectionPropertyEditor">
-          <Connection component="resourceFactory" name="getBuildRG32" type="method"/>
+          <Connection component="resourceFactory" name="getBuildRGDeadlocks32" type="method"/>
         </Property>
         <Property name="tooltipDesc" type="java.lang.String" value="Show the Reachability Graph highlighting deadlock paths."/>
       </Properties>
