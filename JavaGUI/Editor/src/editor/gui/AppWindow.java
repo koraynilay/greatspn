@@ -2088,7 +2088,7 @@ public final class AppWindow extends javax.swing.JFrame implements MainWindowInt
         });
 
         actionStartRGDeadlocks.setActionName("Show the Reachability Graph (Highlight Deadlocks).");
-        actionStartRGDeadlocks.setIcon(resourceFactory.getBuildRG32());
+        actionStartRGDeadlocks.setIcon(resourceFactory.getBuildRGDeadlocks32());
         actionStartRGDeadlocks.setTooltipDesc("Show the Reachability Graph highlighting deadlock paths.");
         actionStartRGDeadlocks.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
