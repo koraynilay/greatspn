@@ -20,8 +20,7 @@ AR := ar rcs
 
 ### The following variables can be overridden 
 ### by defining them as environment variables.
-CFLAGS ?= -g -DGLIBCXX_DEBUG
-CFLAGS ?= -O2
+CFLAGS ?= -g -O2 -std=gnu99 -Wno-incompatible-pointer-types -Wno-int-conversion -Wno-implicit-int -DGLIBCXX_DEBUG
 CPPFLAGS ?= $(CFLAGS)
 LDFLAGS ?= -O2
 
