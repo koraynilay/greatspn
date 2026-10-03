@@ -19,10 +19,11 @@ LEMON := ./bin/lemon
 AR := ar rcs
 
 ### The following variables can be overridden 
-### by defining them as environment variables.
-CFLAGS ?= -g -O2 -std=gnu99 -Wno-incompatible-pointer-types -Wno-int-conversion -Wno-implicit-int -DGLIBCXX_DEBUG
-CPPFLAGS ?= $(CFLAGS)
-LDFLAGS ?= -O2
+### only by using them as `make CFLAGS=...`,
+### not just as environment variables.
+CFLAGS += -g -O2 -std=gnu99 -Wno-incompatible-pointer-types -Wno-int-conversion -Wno-implicit-int -DGLIBCXX_DEBUG
+CPPFLAGS += $(CFLAGS)
+LDFLAGS += -O2
 
 ifdef STATIC_LINK
 	LDFLAGS += -static
@@ -2273,7 +2274,7 @@ endif
 
 ogdf_SOURCES := NSRC/ogdf/ogdf.cpp
 
-ogdf_CPPFLAGS := $(CPPFLAGS) -Wall $(ENABLE_Cxx17)
+ogdf_CPPFLAGS := $(CPPFLAGS) -Wall $(ENABLE_Cxx17) -I/usr/include/ogdf-release -I/usr/local/include/ogdf-release
 ogdf_LD := $(LDPP)
 ogdf_LDFLAGS := $(LDFLAGS) $(LINK_OGDF_LIB) $(ENABLE_Cxx17) -pthread
 
