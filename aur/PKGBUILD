@@ -1,0 +1,69 @@
+# Maintainer: korayniay <koray.fra@gmail.com>
+pkgname=greatspn-git
+pkgver=r979.3e714d1
+pkgrel=1
+pkgdesc="GreatSPN: A tool for modelling and analyzing Petri Nets"
+arch=('x86_64')
+url="https://github.com/greatspn/SOURCES"
+license=('GPLv2')
+depends=('java-environment'
+         'boost'
+         'glib2'
+         'glibmm'
+         'libxml++2.6'
+         'gmp'
+         'graphviz'
+         'suitesparse'
+         'glpk'
+         'lpsolve'
+         'meddly')
+optdepends=('spot: for the CTL* and LTL model checker tools'
+            'ogdf: for the automatic Petri net relayout feature in the GUI')
+makedepends=('ant' 'byacc')
+source=("greatspn::git+file:///$PWD/..")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$srcdir/greatspn"
+  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+  cd "$srcdir/greatspn"
+
+  # Disable problematic XDG scripts that fail in fakeroot
+  sed -i 's/^# XDG Integration/exit 0\n# XDG Integration/' JavaGUI/DISTRIB/install.sh
+
+  make
+}
+
+package() {
+  cd "$srcdir/greatspn"
+
+  export XDG_DIR="$pkgdir/usr/share"
+  mkdir -p "$pkgdir/usr/share/mime" "$pkgdir/usr/share/applications" "$pkgdir/usr/share/pixmaps"
+
+  make INSTALLDIR="$pkgdir/opt/GreatSPN" PKGDIR=/opt/GreatSPN install
+
+  mkdir -p "$pkgdir/usr/bin"
+  # Create a wrapper script instead of just symlinking, to ensure environment vars are loaded correctly if needed
+  echo '#!/bin/bash' > "$pkgdir/usr/bin/greatspn_editor"
+  echo 'export PATH=/opt/GreatSPN/scripts:$PATH' >> "$pkgdir/usr/bin/greatspn_editor"
+  echo '/opt/GreatSPN/scripts/greatspn_editor "$@"' >> "$pkgdir/usr/bin/greatspn_editor"
+  chmod +x "$pkgdir/usr/bin/greatspn_editor"
+
+  # Install desktop entry and icon manually
+  mkdir -p "$pkgdir/usr/share/applications" "$pkgdir/usr/share/pixmaps"
+  cp objects/JavaGUI/bin/pnpro-editor.png "$pkgdir/usr/share/pixmaps/"
+
+  cat > "$pkgdir/usr/share/applications/pnpro-editor.desktop" << 'EOF'
+[Desktop Entry]
+Name=GreatSPN Editor
+Exec=greatspn_editor %F
+Icon=pnpro-editor
+Terminal=false
+Type=Application
+Categories=Development;Science;
+Comment=The GreatSPN Editor.
+EOF
+}
