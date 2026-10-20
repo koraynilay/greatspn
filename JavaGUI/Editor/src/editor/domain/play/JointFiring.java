@@ -84,6 +84,7 @@ public class JointFiring implements Serializable {
         this.elapsedTime = elapsedTime;
         this.speedup = speedup;
         reachedState = new JointState();
+        reachedState.firedTransition = firedNode;
         
         assert (colorVarsBinding != null && firedNode instanceof Transition) ||
                (colorVarsBinding == null && firedNode instanceof DtaEdge) ||

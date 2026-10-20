@@ -63,6 +63,9 @@ public class JointState implements Serializable, AbstractMarking {
     // Marking representation
     public String markingText;
     
+    // The transition or event that fired to reach this state
+    public Firable firedTransition;
+    
     // != null if there is some unrecoverable error.
     public String errorDescription;
     
@@ -181,6 +184,11 @@ public class JointState implements Serializable, AbstractMarking {
         }
         boolean emptyMarking = true;
         int i = 0;
+        if (firedTransition instanceof Transition) {
+            sb.append(((Transition) firedTransition).getUniqueName());
+            i++;
+            emptyMarking = false;
+        }
         Iterator<Map.Entry<Place, EvaluatedFormula>> it = marking.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<Place, EvaluatedFormula> tkn = it.next();
@@ -280,6 +288,11 @@ public class JointState implements Serializable, AbstractMarking {
         }
         boolean emptyMarking = true;
         int i = 0;
+        if (firedTransition instanceof Transition) {
+            sb.append(((Transition) firedTransition).getUniqueName());
+            i++;
+            emptyMarking = false;
+        }
         Iterator<Map.Entry<Place, EvaluatedFormula>> it = marking.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<Place, EvaluatedFormula> tkn = it.next();
