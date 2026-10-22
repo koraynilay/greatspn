@@ -41,7 +41,7 @@ LEXPPFLAGS ?=
 YACCPPFLAGS ?=
 ARFLAGS :=
 UIL ?= /usr/bin/uil
-ENABLE_Cxx17 ?= -std=c++17
+ENABLE_Cxx17 ?= -std=c++20
 ENABLE_Cxx14 ?= -std=c++14
 
 # External libraries
