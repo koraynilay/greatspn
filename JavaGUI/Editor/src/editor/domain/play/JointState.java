@@ -22,6 +22,8 @@ import editor.domain.values.MultiSet;
 import editor.domain.values.RealScalarValue;
 import java.awt.geom.Point2D;
 import java.io.Serializable;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -65,6 +67,7 @@ public class JointState implements Serializable, AbstractMarking {
     
     // The transition or event that fired to reach this state
     public Firable firedTransition;
+    public ColorVarsBinding firingColorBinding;
     
     // != null if there is some unrecoverable error.
     public String errorDescription;
@@ -170,8 +173,19 @@ public class JointState implements Serializable, AbstractMarking {
     public String getMarkingRepr(ParserContext gspnContext) {
         // Prepare the marking text representation
         StringBuilder sb = new StringBuilder();
-        if (isTimedSimulation)
-            sb.append("@").append(String.format(Locale.US, "%.4f", time)).append(": ");
+        if (firedTransition instanceof Transition) {
+            sb.append("<html>&nbsp;&darr;&nbsp;").append(((Transition) firedTransition).getUniqueName());
+            if (firingColorBinding != null && firingColorBinding != ColorVarsBinding.EMPTY_BINDING) {
+                String b = firingColorBinding.toString();
+                if (!b.equals("[]"))
+                    sb.append(b.replace("<", "&lt;").replace(">", "&gt;"));
+            }
+            if (isTimedSimulation) {
+                DecimalFormat df = new DecimalFormat("0.####", DecimalFormatSymbols.getInstance(Locale.US));
+                sb.append(" @ ").append(df.format(time));
+            }
+            sb.append("<br>");
+        }
         if (currLoc != null) {
             sb.append("[");
             sb.append(currLoc.getUniqueName());
@@ -184,11 +198,6 @@ public class JointState implements Serializable, AbstractMarking {
         }
         boolean emptyMarking = true;
         int i = 0;
-        if (firedTransition instanceof Transition) {
-            sb.append(((Transition) firedTransition).getUniqueName());
-            i++;
-            emptyMarking = false;
-        }
         Iterator<Map.Entry<Place, EvaluatedFormula>> it = marking.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<Place, EvaluatedFormula> tkn = it.next();
@@ -198,11 +207,16 @@ public class JointState implements Serializable, AbstractMarking {
                 sb.append(", ");
             sb.append(tkn.getKey().getUniqueName());
             sb.append("=");
-            sb.append(tkn.getValue().toStringFormat(ExpressionLanguage.PNPRO, "%.2f"));
+            String val = tkn.getValue().toStringFormat(ExpressionLanguage.PNPRO, "%.2f");
+            if (firedTransition instanceof Transition)
+                val = val.replace("<", "&lt;").replace(">", "&gt;");
+            sb.append(val);
             emptyMarking = false;
         }
         if (emptyMarking)
-            sb.append("<<empty marking>>");
+            sb.append(firedTransition instanceof Transition ? "&lt;&lt;empty marking&gt;&gt;" : "<<empty marking>>");
+        if (firedTransition instanceof Transition)
+            sb.append("</html>");
         
         return sb.toString();
     }
@@ -274,8 +288,19 @@ public class JointState implements Serializable, AbstractMarking {
     
     public String ConvertToString() {
         StringBuilder sb = new StringBuilder();
-        if (isTimedSimulation)
-            sb.append("@").append(String.format(Locale.US, "%.4f", time)).append(": ");
+        if (firedTransition instanceof Transition) {
+            sb.append(" \u2193 ").append(((Transition) firedTransition).getUniqueName());
+            if (firingColorBinding != null && firingColorBinding != ColorVarsBinding.EMPTY_BINDING) {
+                String b = firingColorBinding.toString();
+                if (!b.equals("[]"))
+                    sb.append(b);
+            }
+            if (isTimedSimulation) {
+                DecimalFormat df = new DecimalFormat("0.####", DecimalFormatSymbols.getInstance(Locale.US));
+                sb.append(" @ ").append(df.format(time));
+            }
+            sb.append("\n");
+        }
         if (currLoc != null) {
             sb.append("[");
             sb.append(currLoc.getUniqueName());
@@ -288,11 +313,6 @@ public class JointState implements Serializable, AbstractMarking {
         }
         boolean emptyMarking = true;
         int i = 0;
-        if (firedTransition instanceof Transition) {
-            sb.append(((Transition) firedTransition).getUniqueName());
-            i++;
-            emptyMarking = false;
-        }
         Iterator<Map.Entry<Place, EvaluatedFormula>> it = marking.entrySet().iterator();
         while (it.hasNext()) {
             Map.Entry<Place, EvaluatedFormula> tkn = it.next();
