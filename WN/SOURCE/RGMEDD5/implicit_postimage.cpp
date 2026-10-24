@@ -32,12 +32,17 @@ namespace MEDDLY {
 
 // This class is the cache for the all-event-firings relation: mdd -> mdd'
 // in the outer step of the recursion (compute_postimage)
-class MEDDLY::postimage_impl_outer_op : public unary_operation {
+class MEDDLY::postimage_impl_outer_op : public saturation_operation {
     postimage_impl_inner_op* parent;
 public:
     postimage_impl_outer_op(postimage_impl_inner_op* p,
         forest* argF, forest* resF);
     virtual ~postimage_impl_outer_op();
+
+    virtual void compute(const dd_edge& a, dd_edge& c) override
+    {
+        c.set(compute_postimage(a.getNode()));
+    }
 
     node_handle compute_postimage(node_handle mdd);
     node_handle compute_postimage(node_handle mdd, int level);
@@ -187,14 +192,14 @@ void MEDDLY::postimage_impl_inner_op::fireTopEventsAtLevel(unpacked_node &nb, un
                 nbout.down(j) = rec;
             } 
             else if (rec == -1) { // terminal for true
-                resF->unlinkNode(nb.down(j));
+                resF->unlinkNode(nbout.down(j));
                 nbout.down(j) = -1;
             } 
             else {
                 nbdj.set(nbout.down(j)); // clobber
                 newst.set(rec); // clobber
-                mddUnion->compute(nbdj, newst, nbdj);
-                nbout.down(j) = nbdj.getNode();
+                mddUnion->computeTemp(nbdj, newst, nbdj);
+                nbout.setFull(j, nbdj);
             }
             MEDDLY_DCASSERT(resF->getNodeLevel(nbout.down(j)) < nbout.getLevel());
         }
@@ -285,8 +290,8 @@ MEDDLY::node_handle MEDDLY::postimage_impl_inner_op::fireEvent(MEDDLY::node_hand
             else { // there's new states and existing states; union them.
                 nbdj.set(nb_out->down(j));
                 newst.set(newstates);
-                mddUnion->compute(nbdj, newst, nbdj);
-                nb_out->down(j) = nbdj.getNode();
+                mddUnion->computeTemp(nbdj, newst, nbdj);
+                nb_out->setFull(j, nbdj);
             }
             MEDDLY_DCASSERT(resF->getNodeLevel(nb_out->down(j)) <= nb_out->getLevel());
         } // for i
@@ -364,7 +369,7 @@ MEDDLY::createImplicitPostImage(implicit_relation* rel)
 
 MEDDLY::postimage_impl_outer_op::postimage_impl_outer_op(postimage_impl_inner_op *p,
                                                          forest *argF, forest *resF)
-    : unary_operation(argF, resF)
+    : saturation_operation("PostImage_impl_by_events", 1, argF, resF)
 {
     parent = p;
 
@@ -447,7 +452,7 @@ MEDDLY::postimage_impl_outer_op::compute_postimage(node_handle mdd, int k)
     // This interferes when the forest is quasy-reduced instead of fully reduced, because the
     // final dd_edge has a long list of intermediate nodes up to the top level, that are not used.
     // Moreover, this breaks the DAG structure of MDDs. when the reduction rule is set to quasi-reduced.
-    parent->mddUnion->compute(dd1, dd2, union_dd);
+    parent->mddUnion->computeTemp(dd1, dd2, union_dd);
 
     n = resF->linkNode(union_dd.getNode());
     MEDDLY_DCASSERT(resF->getNodeLevel(n) <= k);

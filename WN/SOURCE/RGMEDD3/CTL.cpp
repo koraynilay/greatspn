@@ -413,51 +413,27 @@ void PlaceTerm::print(std::ostream &os) const {
 void PlaceTerm::createMTMDD() {
     CTLMDD *ctl = CTLMDD::getInstance();
     forest *mtmdd_forest = ctl->getMTMDDForest();
-    dd_edge tmp_mdd(ctl->getMTMDDForest());
-    int val;
-    int **m = ctl->getIns();
-    float terminale;
     int level = rsrg->convertPlaceToMDDLevel(place) + 1;
-    int variable_bound = rsrg->getMaxValueOfPlaceRS(place);//rsrg->getRealBound(variable);
-#warning "Use createEdgeForVar"
-#warning "non dovrebbero mai comparire PLUS e MINUS, controllare"
+    int variable_bound = rsrg->getMaxValueOfPlaceRS(place);
+    int dom_bound = rsrg->getDomain()->getVariableBound(level);
     FormulaPrinter<PlaceTerm> fp(this);
-    for (val = 0; val <= variable_bound; val++) {
-        m[0][level] = val;
-        switch (op) {
-            case IntFormula::EOP_PLUS:
-                terminale = coeff + (float) val;
-                break;
-            case IntFormula::EOP_TIMES:
-                terminale = coeff * (float) val;
-                break;
-            case IntFormula::EOP_MINUS:
-                terminale = coeff - (float) val;
-                break;
-            case IntFormula::EOP_DIV:
-                terminale = coeff / (float) val;
-                break;
-        }
-        dd_edge new_ap(ctl->getMTMDDForest());// = tmp_new_ap;
-        minterm min(mtmdd_forest);
-        if (DOUBLELEVEL)
-            min.setAll(m[0], m[0], rangeval(terminale));
-        else
-            min.setAll(m[0], rangeval(terminale));
-        min.buildFunction(rangeval(0.0f), new_ap);
-        tmp_mdd += new_ap;
-    }
-    m[0][level] = DOUBLELEVEL ? DONT_CHANGE : DONT_CARE;
-    setMTMDD(tmp_mdd);
 
-#warning "Try and test this implementation below."
-    // float term_vec[variable_bound + 1];
-    // for (int mark = 0; mark <= variable_bound; mark++)
-    //     term_vec[mark] = mark;
-    // Controllare se gli indici si term_vec partono da 0 o 1, e se serve l'elemento -1
-    // dd_edge* mark_of_place(ctl->getMTMDDForest());
-    // mtmdd_forest->createEdgeForVar(level, DOUBLELEVEL, term_vec, *mark_of_place);
-    // setMTMDD(mark_of_place);
+    std::vector<rangeval> term_vec(dom_bound, rangeval(0.0f));
+    for (int mark = 0; mark < dom_bound; mark++) {
+        if (mark <= variable_bound) {
+            float terminale = 0.0f;
+            switch (op) {
+                case IntFormula::EOP_PLUS:  terminale = coeff + (float)mark; break;
+                case IntFormula::EOP_TIMES: terminale = coeff * (float)mark; break;
+                case IntFormula::EOP_MINUS: terminale = coeff - (float)mark; break;
+                case IntFormula::EOP_DIV:   terminale = coeff / (float)mark; break;
+            }
+            term_vec[mark] = rangeval(terminale);
+        }
+    }
+    dd_edge mark_of_place(mtmdd_forest);
+    mtmdd_forest->createEdgeForVar(level, false, term_vec.data(), mark_of_place);
+    setMTMDD(mark_of_place);
 }
 
 /*---------------------

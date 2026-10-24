@@ -788,7 +788,7 @@ void Inequality::createMDD(Context& ctx) {
                 m[0][plterm2->getMeddlyLevel1based()] = int(i / div * mult);
                 minterm min_comp(ctx.get_MDD_forest());
                 min_comp.setAll(m[0], rangeval(true));
-                min_comp.buildFunction(true, tmp_complete);
+                min_comp.buildFunction(false, tmp_complete);
                 apply(UNION, tmp_complete, boole, boole);
                 m[0][plterm2->getMeddlyLevel1based()] = DONT_CARE;
             }
@@ -1539,16 +1539,16 @@ void QuantifiedFormula::createMDD(Context& ctx) {
 
     dd_edge result(ctx.get_MDD_forest());
     if (!ba.accept_loc_sets.empty()) {
+        // Initial & final states of RS*BA (also resizes extra level bound if needed)
+        dd_edge Z0 = RSxBA_init_states(ctx, ba);
+        std::list<dd_edge> AS = RSxBA_final_sets(ctx, ba);
+
         // Evaluate all subformulas and atomic propositions
         ba.pre_compute_subformula_MDDs(ctx);
 
         // Get all deadlock states of the RS from the deadlock atomic proposition
         ref_ptr<Deadlock> dead_ap = ctlnew<Deadlock>(true);
         dd_edge deadlock = dead_ap->getMDD(ctx);
-
-        // Initial & final states of RS*BA
-        dd_edge Z0 = RSxBA_init_states(ctx, ba);
-        std::list<dd_edge> AS = RSxBA_final_sets(ctx, ba);
 
         shared_ptr<RSxBA_VirtualNSF> RSxBA_NSF = make_shared<RSxBA_VirtualNSF>(&ctx, &ba, deadlock);
         if (!implicitNextForCTLstar) {

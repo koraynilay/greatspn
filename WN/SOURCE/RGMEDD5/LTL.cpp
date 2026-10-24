@@ -406,7 +406,7 @@ dd_edge mxd_relabel_loc(int loc, int loc_primed, forest* forestMxD)
     m.setAllVars(DONT_CARE, DONT_CHANGE);
     // npl is a global var (!)
     m.setVars(npl + 1, loc, loc_primed);
-    m.buildFunction(true, labelingMxD);
+    m.buildFunction(false, labelingMxD);
 
     return labelingMxD;
 }
@@ -543,8 +543,12 @@ RSxBA_init_states(Context& ctx, BuchiAutomaton& ba) {
     // Resize the variable bound of the extra level to accomodate BA location indicess
     const unsigned int currentLocLvlBound = dom->getVariableBound(nvars);
     const unsigned int locLvlBound = std::max(ba.num_locs + 1, currentLocLvlBound);
-    if (currentLocLvlBound < locLvlBound) // resize needed
+    if (currentLocLvlBound < locLvlBound) { // resize needed
         dom->enlargeVariableBound(nvars, false, locLvlBound);
+        ctx.get_MDD_forest()->removeAllComputeTableEntries();
+        ctx.get_MxD_forest()->removeAllComputeTableEntries();
+        compute_table::removeAllFromMonolithic();
+    }
 
     // Encode the initial states of RSxBA
     dd_edge Z0(ctx.get_MDD_forest());
@@ -611,7 +615,7 @@ RSxBA_makeNSF(Context& ctx, BuchiAutomaton& ba, dd_edge& deadlock) {
     dd_edge pot_RS = dd_edge(forestMDD);
     minterm m_pot(forestMDD);
     m_pot.setAllVars(DONT_CARE);
-    m_pot.buildFunction(true, pot_RS);
+    m_pot.buildFunction(false, pot_RS);
 
     // location-agnostic deadlock states
     dd_edge deadlock_anyloc = mdd_relabel(deadlock, DONT_CARE, DONT_CARE, forestMxD);
@@ -788,7 +792,7 @@ dd_edge RSxBA_VirtualNSF::forward_reachable(const dd_edge& s0) const {
         return reachable_BFS(s0, this);
     else {
         dd_edge reachab = s0;
-        apply(REACHABLE_SATUR(true), reachab, NSF, reachab);
+        apply(REACHABLE_TRAD_FS(true), reachab, NSF, reachab);
         return reachab;
     }
 }

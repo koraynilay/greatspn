@@ -565,7 +565,7 @@ dd_edge dd_from_marking(const std::vector<int> &marking, MEDDLY::forest *mdd_for
     for (int i = 1; i <= mdd_forest->getDomain()->getNumVariables(); ++i) {
         m.setVar(i, marking[i]);
     }
-    m.buildFunction(true, dd_of_state);
+    m.buildFunction(false, dd_of_state);
     return dd_of_state;
 }
 
