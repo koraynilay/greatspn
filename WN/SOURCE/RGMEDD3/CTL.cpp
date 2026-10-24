@@ -1423,8 +1423,15 @@ TreeTraceNode *CTLStateFormula::generateTrace(const vector<int> &state0, TraceTy
                 // Step back until we find the marking in the sat set
                 dd_edge pre_image(mdd_forest);
                 apply(PRE_IMAGE, intermDD.back(), rsrg->getNSF(), pre_image);
-                apply(INTERSECTION, intermDD.back(), Phi1, intermDD.back());
+                apply(INTERSECTION, pre_image, Phi1, pre_image);
+                if (isEmptySet(pre_image) || pre_image == intermDD.back()) {
+                    break;
+                }
                 intermDD.push_back(pre_image);
+            }
+            if (!ctl->SatSetContains(intermDD.back(), state0.data())) {
+                ttn->set_sub_trace1(getFormula1()->generateTrace(state0, traceTy));
+                break;
             }
             // Pick the trace from s0 to any state in intermDD[i]
             if (intermDD.size() == 1) {
