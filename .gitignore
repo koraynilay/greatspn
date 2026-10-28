@@ -18,3 +18,5 @@ WN/.DS_Store
 WN/SOURCE/.DS_Store
 .vscode/*
 JavaGUI/Editor/nbproject/private/*
+results*.json
+test_logs/

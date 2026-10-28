@@ -814,9 +814,7 @@ TreeTraceNode* Context::trace_EX(Formula* top_formula, Formula* phi, const std::
     TreeTraceNode* next_ttn = new TreeTraceNode(state1, traceTy, tr, (tr >= 0 && tr < ntr) ? tabt[tr].trans_name : "");
     ttn->set_next(next_ttn);
 
-    if (phi->hasQuantifier()) {
-        next_ttn->set_sub_trace1(phi->generateTrace(*this, state1, traceTy));
-    }
+    next_ttn->set_sub_trace1(phi->generateTrace(*this, state1, traceTy));
     return ttn;
 }
 
@@ -835,9 +833,7 @@ TreeTraceNode* Context::trace_EF(Formula* top_formula, Formula* phi, const std::
     }
 
     if (sat_set_contains(phi_mdd, state0)) {
-        if (phi->hasQuantifier()) {
-            ttn->set_sub_trace1(phi->generateTrace(*this, state0, traceTy));
-        }
+        ttn->set_sub_trace1(phi->generateTrace(*this, state0, traceTy));
         return ttn;
     }
 
@@ -854,6 +850,9 @@ TreeTraceNode* Context::trace_EF(Formula* top_formula, Formula* phi, const std::
     if (!sat_set_contains(steps.back(), state0)) {
         return ttn;
     }
+
+    TraceType tt0 = (steps.size() > 1) ? oppositeTraceType(traceTy) : traceTy;
+    ttn->set_sub_trace1(phi->generateTrace(*this, state0, tt0));
 
     TreeTraceNode* current_ttn = ttn;
     std::vector<int> curr_state = state0;
@@ -875,13 +874,12 @@ TreeTraceNode* Context::trace_EF(Formula* top_formula, Formula* phi, const std::
         int tr = find_firing_transition(curr_state, next_state);
 
         TreeTraceNode* next_ttn = new TreeTraceNode(next_state, traceTy, tr, (tr >= 0 && tr < ntr) ? tabt[tr].trans_name : "");
+        TraceType tt = (step > 0) ? oppositeTraceType(traceTy) : traceTy;
+        next_ttn->set_sub_trace1(phi->generateTrace(*this, next_state, tt));
+
         current_ttn->set_next(next_ttn);
         current_ttn = next_ttn;
         curr_state = next_state;
-    }
-
-    if (phi->hasQuantifier()) {
-        current_ttn->set_sub_trace1(phi->generateTrace(*this, curr_state, traceTy));
     }
     return ttn;
 }
@@ -906,9 +904,7 @@ TreeTraceNode* Context::trace_EG(Formula* top_formula, Formula* phi, const std::
     visited.push_back(state0);
     std::vector<int> curr_state = state0;
 
-    if (phi->hasQuantifier()) {
-        ttn->set_sub_trace1(phi->generateTrace(*this, state0, traceTy));
-    }
+    ttn->set_sub_trace1(phi->generateTrace(*this, state0, traceTy));
 
     while (visited.size() < 10000) {
         dd_edge dd_curr = dd_from_marking(curr_state, get_MDD_forest());
@@ -938,6 +934,7 @@ TreeTraceNode* Context::trace_EG(Formula* top_formula, Formula* phi, const std::
         if (loop_idx >= 0) {
             TreeTraceNode* loop_node = new TreeTraceNode(next_state, traceTy, tr, (tr >= 0 && tr < ntr) ? tabt[tr].trans_name : "");
             loop_node->set_loop_back_step(loop_idx);
+            loop_node->set_sub_trace1(phi->generateTrace(*this, next_state, traceTy));
             current_ttn->set_next(loop_node);
             ttn->set_circular();
             ttn->set_loop_back_step(loop_idx);
@@ -945,12 +942,10 @@ TreeTraceNode* Context::trace_EG(Formula* top_formula, Formula* phi, const std::
         }
 
         TreeTraceNode* next_ttn = new TreeTraceNode(next_state, traceTy, tr, (tr >= 0 && tr < ntr) ? tabt[tr].trans_name : "");
+        next_ttn->set_sub_trace1(phi->generateTrace(*this, next_state, traceTy));
         current_ttn->set_next(next_ttn);
         current_ttn = next_ttn;
 
-        if (phi->hasQuantifier()) {
-            next_ttn->set_sub_trace1(phi->generateTrace(*this, next_state, traceTy));
-        }
         visited.push_back(next_state);
         curr_state = next_state;
     }
@@ -973,9 +968,7 @@ TreeTraceNode* Context::trace_EU(Formula* top_formula, Formula* phi1, Formula* p
     }
 
     if (sat_set_contains(phi2_mdd, state0)) {
-        if (phi2->hasQuantifier()) {
-            ttn->set_sub_trace1(phi2->generateTrace(*this, state0, traceTy));
-        }
+        ttn->set_sub_trace1(phi2->generateTrace(*this, state0, traceTy));
         return ttn;
     }
 
@@ -996,9 +989,7 @@ TreeTraceNode* Context::trace_EU(Formula* top_formula, Formula* phi1, Formula* p
 
     TreeTraceNode* current_ttn = ttn;
     std::vector<int> curr_state = state0;
-    if (phi1->hasQuantifier()) {
-        ttn->set_sub_trace1(phi1->generateTrace(*this, state0, traceTy));
-    }
+    ttn->set_sub_trace1(phi1->generateTrace(*this, state0, traceTy));
 
     for (ssize_t step = (ssize_t)steps.size() - 2; step >= 0; step--) {
         dd_edge dd_curr = dd_from_marking(curr_state, get_MDD_forest());
@@ -1012,15 +1003,15 @@ TreeTraceNode* Context::trace_EU(Formula* top_formula, Formula* phi1, Formula* p
         int tr = find_firing_transition(curr_state, next_state);
 
         TreeTraceNode* next_ttn = new TreeTraceNode(next_state, traceTy, tr, (tr >= 0 && tr < ntr) ? tabt[tr].trans_name : "");
+        if (step > 0) {
+            next_ttn->set_sub_trace1(phi1->generateTrace(*this, next_state, traceTy));
+        } else {
+            next_ttn->set_sub_trace1(phi2->generateTrace(*this, next_state, traceTy));
+        }
+
         current_ttn->set_next(next_ttn);
         current_ttn = next_ttn;
         curr_state = next_state;
-
-        if (step > 0 && phi1->hasQuantifier()) {
-            next_ttn->set_sub_trace1(phi1->generateTrace(*this, curr_state, traceTy));
-        } else if (step == 0 && phi2->hasQuantifier()) {
-            next_ttn->set_sub_trace1(phi2->generateTrace(*this, curr_state, traceTy));
-        }
     }
     return ttn;
 }
@@ -1121,11 +1112,7 @@ TreeTraceNode* Context::trace_ARfair(Formula* top_formula, Formula* phi1, Formul
 TreeTraceNode* Context::trace_NOT(Formula* top_formula, Formula* phi, const std::vector<int>& state0, TraceType traceTy) {
     TreeTraceNode* sub = phi->generateTrace(*this, state0, oppositeTraceType(traceTy));
     TreeTraceNode* ttn = new TreeTraceNode(state0, make_ref_ptr<Formula>(top_formula), traceTy);
-    if (phi->hasQuantifier()) {
-        ttn->set_sub_trace1(sub);
-    } else {
-        delete sub;
-    }
+    ttn->set_sub_trace1(sub);
     return ttn;
 }
 
@@ -1134,27 +1121,15 @@ TreeTraceNode* Context::trace_NOT(Formula* top_formula, Formula* phi, const std:
 TreeTraceNode* Context::trace_AND(Formula* top_formula, Formula* phi1, Formula* phi2, const std::vector<int>& state0, TraceType traceTy) {
     TreeTraceNode* ttn = new TreeTraceNode(state0, make_ref_ptr<Formula>(top_formula), traceTy);
     if (traceTy == TT_WITNESS) {
-        if (phi1->hasQuantifier()) {
-            ttn->set_sub_trace1(phi1->generateTrace(*this, state0, traceTy));
-        }
-        if (phi2->hasQuantifier()) {
-            if (ttn->get_sub_trace1() == nullptr) {
-                ttn->set_sub_trace1(phi2->generateTrace(*this, state0, traceTy));
-            } else {
-                ttn->set_sub_trace2(phi2->generateTrace(*this, state0, traceTy));
-            }
-        }
+        ttn->set_sub_trace1(phi1->generateTrace(*this, state0, traceTy));
+        ttn->set_sub_trace2(phi2->generateTrace(*this, state0, traceTy));
     } else { // TT_COUNTEREXAMPLE
         dd_edge dd1 = phi1->getMDD(*this);
         bool sat1 = sat_set_contains(dd1, state0);
         if (!sat1) {
-            if (phi1->hasQuantifier()) {
-                ttn->set_sub_trace1(phi1->generateTrace(*this, state0, traceTy));
-            }
+            ttn->set_sub_trace1(phi1->generateTrace(*this, state0, traceTy));
         } else {
-            if (phi2->hasQuantifier()) {
-                ttn->set_sub_trace1(phi2->generateTrace(*this, state0, traceTy));
-            }
+            ttn->set_sub_trace1(phi2->generateTrace(*this, state0, traceTy));
         }
     }
     return ttn;
@@ -1168,25 +1143,13 @@ TreeTraceNode* Context::trace_OR(Formula* top_formula, Formula* phi1, Formula* p
         dd_edge dd1 = phi1->getMDD(*this);
         bool sat1 = sat_set_contains(dd1, state0);
         if (sat1) {
-            if (phi1->hasQuantifier()) {
-                ttn->set_sub_trace1(phi1->generateTrace(*this, state0, traceTy));
-            }
+            ttn->set_sub_trace1(phi1->generateTrace(*this, state0, traceTy));
         } else {
-            if (phi2->hasQuantifier()) {
-                ttn->set_sub_trace1(phi2->generateTrace(*this, state0, traceTy));
-            }
+            ttn->set_sub_trace1(phi2->generateTrace(*this, state0, traceTy));
         }
     } else { // TT_COUNTEREXAMPLE
-        if (phi1->hasQuantifier()) {
-            ttn->set_sub_trace1(phi1->generateTrace(*this, state0, traceTy));
-        }
-        if (phi2->hasQuantifier()) {
-            if (ttn->get_sub_trace1() == nullptr) {
-                ttn->set_sub_trace1(phi2->generateTrace(*this, state0, traceTy));
-            } else {
-                ttn->set_sub_trace2(phi2->generateTrace(*this, state0, traceTy));
-            }
-        }
+        ttn->set_sub_trace1(phi1->generateTrace(*this, state0, traceTy));
+        ttn->set_sub_trace2(phi2->generateTrace(*this, state0, traceTy));
     }
     return ttn;
 }
