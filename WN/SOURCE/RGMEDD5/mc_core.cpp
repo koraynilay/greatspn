@@ -899,14 +899,198 @@ TreeTraceNode* Context::trace_EG(Formula* top_formula, Formula* phi, const std::
         return ttn;
     }
 
+    const VirtualNSF* nsf = stutter_EG ? get_stuttered_nsf() : vNSF.get();
+    dd_edge dd_s0 = dd_from_marking(state0, get_MDD_forest());
+
+    // =========================================================================
+    // Phase 1: Forward BFS layers from s0 (Check Case A: cycle through s0)
+    // =========================================================================
+    std::vector<dd_edge> L;
+    L.push_back(dd_s0);
+    dd_edge visited = dd_s0;
+    int cycle_len = -1;
+
+    for (int step = 1; step <= 1000; ++step) {
+        dd_edge nxt = nsf->post_image(L.back());
+        nxt = MDD_INTERSECT(nxt, S_EG);
+        if (sat_set_is_empty(nxt)) {
+            break;
+        }
+
+        L.push_back(nxt);
+        if (sat_set_contains(nxt, state0)) {
+            cycle_len = step;
+            break;
+        }
+
+        dd_edge new_visited = visited + nxt;
+        if (new_visited == visited) {
+            // Fixpoint reached: s0 cannot reach s0 within S_EG -> proceed to Case B
+            break;
+        }
+        visited = new_visited;
+    }
+
+    std::vector<std::vector<int>> stem_path;
+    std::vector<std::vector<int>> loop_path;
+    int loop_len = -1;
+    size_t k = 0;
+
+    if (cycle_len > 0) {
+        // Case A: minimal cycle from s0 back to s0
+        stem_path.push_back(state0);
+        k = 0;
+        loop_len = cycle_len;
+        loop_path.resize(cycle_len + 1);
+        loop_path[cycle_len] = state0;
+        for (int i = cycle_len; i >= 1; --i) {
+            dd_edge dd_curr = dd_from_marking(loop_path[i], get_MDD_forest());
+            dd_edge preds = nsf->pre_image(dd_curr);
+            preds = MDD_INTERSECT(preds, L[i - 1]);
+            get_marking_from_dd(preds, loop_path[i - 1]);
+        }
+    } else {
+        // =====================================================================
+        // Phase 2: Case B (s0 is transient)
+        // =====================================================================
+        // 1. Identify recurrent cycle states C within reachable states 'visited'
+        dd_edge C = visited;
+        for (int it = 0; it < 500; ++it) {
+            dd_edge prev_C = C;
+            dd_edge pre_C = nsf->pre_image(C);
+            C = MDD_INTERSECT(C, pre_C);
+            dd_edge post_C = nsf->post_image(C);
+            C = MDD_INTERSECT(C, post_C);
+            if (C == prev_C || sat_set_is_empty(C)) {
+                break;
+            }
+        }
+
+        if (!sat_set_is_empty(C)) {
+            // 2. Shortest stem from s0 to C using backward BFS
+            std::vector<dd_edge> stem_layers;
+            stem_layers.push_back(C);
+            while (!sat_set_contains(stem_layers.back(), state0) && stem_layers.size() <= 1000) {
+                dd_edge pre = nsf->pre_image(stem_layers.back());
+                pre = MDD_INTERSECT(pre, S_EG);
+                if (sat_set_is_empty(pre) || pre == stem_layers.back()) {
+                    break;
+                }
+                stem_layers.push_back(pre);
+            }
+
+            if (sat_set_contains(stem_layers.back(), state0)) {
+                size_t stem_len = stem_layers.size() - 1;
+                stem_path.resize(stem_len + 1);
+                stem_path[0] = state0;
+                for (size_t i = 1; i <= stem_len; ++i) {
+                    dd_edge dd_curr = dd_from_marking(stem_path[i - 1], get_MDD_forest());
+                    dd_edge succs = nsf->post_image(dd_curr);
+                    succs = MDD_INTERSECT(succs, stem_layers[stem_len - i]);
+                    get_marking_from_dd(succs, stem_path[i]);
+                }
+                k = stem_len;
+                const std::vector<int>& sk = stem_path.back();
+
+                // 3. Shortest loop from sk back to sk using forward BFS
+                dd_edge dd_sk = dd_from_marking(sk, get_MDD_forest());
+                std::vector<dd_edge> loop_L;
+                loop_L.push_back(dd_sk);
+
+                for (int step = 1; step <= 1000; ++step) {
+                    dd_edge nxt = nsf->post_image(loop_L.back());
+                    nxt = MDD_INTERSECT(nxt, S_EG);
+                    if (sat_set_is_empty(nxt)) {
+                        break;
+                    }
+                    loop_L.push_back(nxt);
+                    if (sat_set_contains(nxt, sk)) {
+                        loop_len = step;
+                        break;
+                    }
+                }
+
+                if (loop_len > 0) {
+                    loop_path.resize(loop_len + 1);
+                    loop_path[loop_len] = sk;
+                    for (int i = loop_len; i >= 1; --i) {
+                        dd_edge dd_curr = dd_from_marking(loop_path[i], get_MDD_forest());
+                        dd_edge preds = nsf->pre_image(dd_curr);
+                        preds = MDD_INTERSECT(preds, loop_L[i - 1]);
+                        get_marking_from_dd(preds, loop_path[i - 1]);
+                    }
+                }
+            }
+        }
+    }
+
+    // Verify fairness constraints on loop_path if any
+    if (loop_len > 0 && has_fairness_constraints()) {
+        for (const auto& F : fair_sets) {
+            bool visited_F = false;
+            for (const auto& st : loop_path) {
+                if (sat_set_contains(F, st)) {
+                    visited_F = true;
+                    break;
+                }
+            }
+            if (!visited_F) {
+                loop_len = -1; // Fairness condition violated, fall back to simulation walk
+                break;
+            }
+        }
+    }
+
+    // =========================================================================
+    // Trace Assembly
+    // =========================================================================
+    if (loop_len > 0) {
+        ttn->set_sub_trace1(phi->generateTrace(*this, state0, traceTy));
+        TreeTraceNode* curr_ttn = ttn;
+
+        // 1. Stem transitions: stem_path[0] -> stem_path[1] -> ... -> stem_path[k]
+        for (size_t i = 1; i <= k; ++i) {
+            int tr = find_firing_transition(stem_path[i - 1], stem_path[i]);
+            TreeTraceNode* next_ttn = new TreeTraceNode(stem_path[i], traceTy, tr,
+                (tr >= 0 && tr < ntr) ? tabt[tr].trans_name : "");
+            next_ttn->set_sub_trace1(phi->generateTrace(*this, stem_path[i], traceTy));
+            curr_ttn->set_next(next_ttn);
+            curr_ttn = next_ttn;
+        }
+
+        // 2. Loop transitions: loop_path[0] -> loop_path[1] -> ... -> loop_path[loop_len - 1]
+        for (int j = 1; j < loop_len; ++j) {
+            int tr = find_firing_transition(loop_path[j - 1], loop_path[j]);
+            TreeTraceNode* next_ttn = new TreeTraceNode(loop_path[j], traceTy, tr,
+                (tr >= 0 && tr < ntr) ? tabt[tr].trans_name : "");
+            next_ttn->set_sub_trace1(phi->generateTrace(*this, loop_path[j], traceTy));
+            curr_ttn->set_next(next_ttn);
+            curr_ttn = next_ttn;
+        }
+
+        // 3. Loop back to state (k + 1)
+        int last_tr = find_firing_transition(loop_path[loop_len - 1], stem_path[k]);
+        TreeTraceNode* loop_node = new TreeTraceNode(stem_path[k], traceTy, last_tr,
+            (last_tr >= 0 && last_tr < ntr) ? tabt[last_tr].trans_name : "");
+        loop_node->set_loop_back_step((int)k);
+        loop_node->set_sub_trace1(phi->generateTrace(*this, stem_path[k], traceTy));
+        curr_ttn->set_next(loop_node);
+        ttn->set_circular();
+        ttn->set_loop_back_step((int)k);
+        return ttn;
+    }
+
+    // =========================================================================
+    // Fallback: Greedy Simulation Walk
+    // =========================================================================
     TreeTraceNode* current_ttn = ttn;
-    std::vector<std::vector<int>> visited;
-    visited.push_back(state0);
+    std::vector<std::vector<int>> visited_states;
+    visited_states.push_back(state0);
     std::vector<int> curr_state = state0;
 
     ttn->set_sub_trace1(phi->generateTrace(*this, state0, traceTy));
 
-    while (visited.size() < 10000) {
+    while (visited_states.size() < 10000) {
         dd_edge dd_curr = dd_from_marking(curr_state, get_MDD_forest());
         dd_edge succs(get_MDD_forest());
         if (stutter_EG) {
@@ -924,8 +1108,8 @@ TreeTraceNode* Context::trace_EG(Formula* top_formula, Formula* phi, const std::
         int tr = find_firing_transition(curr_state, next_state);
 
         int loop_idx = -1;
-        for (size_t i = 0; i < visited.size(); ++i) {
-            if (visited[i] == next_state) {
+        for (size_t i = 0; i < visited_states.size(); ++i) {
+            if (visited_states[i] == next_state) {
                 loop_idx = (int)i;
                 break;
             }
@@ -946,7 +1130,7 @@ TreeTraceNode* Context::trace_EG(Formula* top_formula, Formula* phi, const std::
         current_ttn->set_next(next_ttn);
         current_ttn = next_ttn;
 
-        visited.push_back(next_state);
+        visited_states.push_back(next_state);
         curr_state = next_state;
     }
     return ttn;
