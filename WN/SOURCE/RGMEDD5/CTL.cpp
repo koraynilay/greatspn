@@ -339,7 +339,7 @@ void TreeTraceNode::print_trace(const char *prefix, int nest_level) const {
             cout << "  ";
         cout << prefix << cnt << ": ";
         if (!ttn->fired_trans_name.empty()) {
-            cout << "---[ " << ttn->fired_trans_name << " ]---> ";
+            cout << " --> " << ttn->fired_trans_name << " --> \n";
         }
         ctl->print_state(ttn->marking.data());
         cout << endl;
@@ -360,9 +360,9 @@ void TreeTraceNode::print_trace(const char *prefix, int nest_level) const {
         for (int i = 0; i < nest_level; i++)
             cout << "  ";
         if (loop_back_step >= 0)
-            cout << prefix << cnt << ": loop back to state " << prefix << (loop_back_step + 1) << "." << endl;
+            cout << "loop back to state " << prefix << (loop_back_step + 1) << "." << endl;
         else
-            cout << prefix << cnt << ": loop back to state " << prefix << "1." << endl;
+            cout << "loop back to state " << prefix << "1." << endl;
     }
 }
 
@@ -381,8 +381,7 @@ void TreeTraceNode::export_token_game_trace(std::ostream &os) const {
 
         bool first = true;
         if (step > 0 && !ttn->fired_trans_name.empty()) {
-            os << ttn->fired_trans_name;
-            first = false;
+            os << " -> " << ttn->fired_trans_name << "\n";
         }
 
         bool empty = true;
