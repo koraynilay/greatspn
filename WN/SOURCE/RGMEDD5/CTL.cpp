@@ -334,13 +334,28 @@ void TreeTraceNode::print_trace(const char *prefix, int nest_level) const {
     cout << endl << endl;
     if (nest_level > 0 && ttn->next == NULL && ttn->sub_trace1 == NULL && ttn->sub_trace2 == NULL)
         return; // Do not show this AP state
+    bool loop_printed = false;
     while (ttn) {
+        if (ttn != this && ttn->loop_back_step >= 0) {
+            for (int i = 0; i < nest_level; i++)
+                cout << "  ";
+            if (!ttn->fired_trans_name.empty()) {
+                cout << "--> " << ttn->fired_trans_name << " --> ";
+            }
+            cout << "loop back to state " << prefix << (ttn->loop_back_step + 1) << "." << endl;
+            loop_printed = true;
+            break;
+        }
+
+        if (!ttn->fired_trans_name.empty()) {
+            for (int i = 0; i < nest_level; i++)
+                cout << "  ";
+            cout << "--> " << ttn->fired_trans_name << " -->" << endl;
+        }
+
         for (int i = 0; i < nest_level; i++)
             cout << "  ";
         cout << prefix << cnt << ": ";
-        if (!ttn->fired_trans_name.empty()) {
-            cout << " --> " << ttn->fired_trans_name << " --> \n";
-        }
         ctl->print_state(ttn->marking.data());
         cout << endl;
         if (ttn->sub_trace1) {
@@ -356,7 +371,7 @@ void TreeTraceNode::print_trace(const char *prefix, int nest_level) const {
         ttn = ttn->next;
         cnt++;
     }
-    if (isCircular) {
+    if (isCircular && !loop_printed) {
         for (int i = 0; i < nest_level; i++)
             cout << "  ";
         if (loop_back_step >= 0)
